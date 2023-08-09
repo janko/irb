@@ -13,42 +13,34 @@ module IRB
       description "List all available commands and their description."
 
       def execute(*args)
-        commands_info = IRB::ExtendCommandBundle.all_commands_info
-        commands_grouped_by_categories = commands_info.group_by { |cmd| cmd[:category] }
-        longest_cmd_name_length = commands_info.map { |c| c[:display_name].length }.max
-
         output = StringIO.new
 
-        commands_grouped_by_categories.each do |category, cmds|
-          output.puts Color.colorize(category, [:BOLD])
-
-          cmds.each do |cmd|
-            output.puts "  #{cmd[:display_name].to_s.ljust(longest_cmd_name_length)}    #{cmd[:description]}"
-          end
-
-          output.puts
-        end
+        commands_info = IRB::ExtendCommandBundle.all_commands_info
+        generate_section("[Commands]", commands_info, output)
 
         helpers_info = IRB::HelperMethod.all_helper_methods_info
+        generate_section("[Helper Methods]", helpers_info, output)
 
-        unless helpers_info.empty?
-          output.puts(Color.colorize("[Helper Methods]", [:BOLD]) + "\n\n")
-        end
+        Pager.page_content(output.string)
+      end
 
-        helpers_grouped_by_categories = helpers_info.group_by { |cmd| cmd[:category] }
-        longest_helper_name_length = helpers_info.map { |c| c[:display_name].length }.max
+      private
 
-        helpers_grouped_by_categories.each do |category, helpers|
+      def generate_section(title, entries, output)
+        output.puts(Color.colorize(title, [:BOLD]) + "\n\n")
+
+        entries_grouped_by_categories = entries.group_by { |cmd| cmd[:category] }
+        longest_name_length = entries.map { |c| c[:display_name].length }.max
+
+        entries_grouped_by_categories.each do |category, entries|
           output.puts Color.colorize(category, [:BOLD])
 
-          helpers.each do |helper|
-            output.puts "  #{helper[:display_name].to_s.ljust(longest_helper_name_length)}    #{helper[:description]}"
+          entries.each do |entry|
+            output.puts "  #{entry[:display_name].to_s.ljust(longest_name_length)}    #{entry[:description]}"
           end
 
           output.puts
         end
-
-        Pager.page_content(output.string)
       end
     end
   end
