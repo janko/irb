@@ -149,8 +149,7 @@ module TestIRB
     end
 
     def test_assignment_expression
-      context = build_context
-      ruby_lex = RubyLex.new(context)
+      ruby_lex = RubyLex.new
 
       [
         "foo = bar",
@@ -173,7 +172,7 @@ module TestIRB
         "foo\nfoo = bar",
       ].each do |exp|
         assert(
-          ruby_lex.assignment_expression?(exp),
+          ruby_lex.assignment_expression?(exp, local_variables: []),
           "#{exp.inspect}: should be an assignment expression"
         )
       end
@@ -186,37 +185,21 @@ module TestIRB
         "foo = bar\nfoo",
       ].each do |exp|
         refute(
-          ruby_lex.assignment_expression?(exp),
+          ruby_lex.assignment_expression?(exp, local_variables: []),
           "#{exp.inspect}: should not be an assignment expression"
         )
       end
     end
 
     def test_assignment_expression_with_local_variable
-      context = build_context
-      ruby_lex = RubyLex.new(context)
+      ruby_lex = RubyLex.new
       code = "a /1;x=1#/"
-      refute(ruby_lex.assignment_expression?(code), "#{code}: should not be an assignment expression")
-      context.workspace.binding.eval('a = 1')
-      assert(ruby_lex.assignment_expression?(code), "#{code}: should be an assignment expression")
-      refute(ruby_lex.assignment_expression?(""), "empty code should not be an assignment expression")
+      refute(ruby_lex.assignment_expression?(code, local_variables: []), "#{code}: should not be an assignment expression")
+      assert(ruby_lex.assignment_expression?(code, local_variables: [:a]), "#{code}: should be an assignment expression")
+      refute(ruby_lex.assignment_expression?("", local_variables: [:a]), "empty code should not be an assignment expression")
     end
 
     private
-
-    def build_context(local_variables = nil)
-      IRB.init_config(nil)
-      workspace = IRB::WorkSpace.new(TOPLEVEL_BINDING.dup)
-
-      if local_variables
-        local_variables.each do |n|
-          workspace.binding.local_variable_set(n, nil)
-        end
-      end
-
-      IRB.conf[:VERBOSE] = false
-      IRB::Context.new(nil, workspace)
-    end
 
     def assert_indent_level(lines, expected, local_variables: [])
       indent_level, _continue, _code_block_open = check_state(lines, local_variables: local_variables)
@@ -237,10 +220,9 @@ module TestIRB
     end
 
     def check_state(lines, local_variables: [])
-      context = build_context(local_variables)
       code = lines.map { |l| "#{l}\n" }.join # code should end with "\n"
-      ruby_lex = RubyLex.new(context)
-      tokens, opens, terminated = ruby_lex.check_code_state(code)
+      ruby_lex = RubyLex.new
+      tokens, opens, terminated = ruby_lex.check_code_state(code, local_variables: local_variables)
       indent_level = ruby_lex.calc_indent_level(opens)
       continue = ruby_lex.should_continue?(tokens)
       [indent_level, continue, !terminated]
